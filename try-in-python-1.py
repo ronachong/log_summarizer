@@ -5,6 +5,9 @@ import time
 """
 thoughts/concerns:
 * when starting the web server and script at ~ the same time, my tool's current iteration reaches the end of file in 0.00025 secs and in 32 lines.
+This means that in 10 seconds, theoretically my tool would read 1,280,000 lines.
+Meanwhile, the web server only emits about 180 lines total in 10 seconds.
+If I try to read the log files continuously, I end up with a race condition.
 * in the previous iteration, I used EOF as an indicator that file was done being written to and to re-initiate line-by-line read of
 current access.log. in reality EOF is agnostic and it's possible that my code reached the end of the file, while it was still being written to. so when line-by-line read repeats, it might start reading the same file over again at position 0.
 * how to identify when file is still not done being written to?
