@@ -41,8 +41,7 @@ class MonitoringThread(threading.Thread):
 
 
     def check_log(self):
-        line_count = subprocess.check_output(["wc", "-l", access_log])
-        return line_count
+        return subprocess.check_output(["wc", "-l", access_log])
 
 class ParsingThread(threading.Thread):
     def __init__(self):
@@ -54,7 +53,13 @@ class ParsingThread(threading.Thread):
 
         total_lines += 1
         print "total lines are", total_lines
-        # line = logfile.readline()
+        self.parse_line()
+
+    def parse_line(self):
+        parsed_line = logfile.readline().split('\t')
+        route = parsed_line[1].split(' ')[1]
+        status = parsed_line[2]
+        # self.add(route, status)
 
 class ReportingThread(threading.Thread):
     def __init__(self):
@@ -70,15 +75,25 @@ class ReportingThread(threading.Thread):
 
     def print_report(self):
         global total_lines
-
-        print total_lines
-        print "interval elapsed: total lines are", total_lines
+        print subprocess.check_output(["date"]), "============================="
+        print "total\t", total_lines, '\n'
         total_lines = 0
+
+# class RequestsBatch:
+#     def __init__(self):
+#         self.total = 0
+#         self.routes = []
+#
+#     def __str__(self):
+#
+#     def add_request(self):
+
 
 # Main
 access_log = "logs/access.log"  # specify path of log to monitor here
 logfile = open(access_log, "r")    # open access.log for reading
 total_lines = 0
+requests = RequestsBatch()
 
 try:
     read_master = MonitoringThread()
