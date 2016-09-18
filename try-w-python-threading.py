@@ -29,6 +29,8 @@ My current organization is to have one monitoring thread, which fires off epheme
 
 The current library I'm using is threading, but this only emulates the process of threading; operations do not truly run asynchronously. Does it make sense to switch to a library that truly does that? What ends up being the difference, in reality?
 
+In the end, is it better to ensure absolute accuracy, and complicate the logic of the solution a lot as a result, or is it better to go with more straightforward/intuitive solution and have some inaccuracy in the output?
+
 Probable improvements to code:
 using the log formatting tool used in the webserver
 using thread scheduling? instead of time.sleep
@@ -125,8 +127,8 @@ class RequestsBatch:
 
 
 # Main
-access_log = "logs/access.log"  # specify path of log to monitor here
-logfile = open(access_log, "r")    # open access.log for reading
+access_log = "logs/access.log"      # specify path of log to monitor here
+logfile = open(access_log, "r")     # open access.log for reading
 requests = RequestsBatch()
 
 try:
