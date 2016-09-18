@@ -6,20 +6,36 @@ import time
 import signal
 
 """
-thoughts/concerns:
-* when starting the web server and script at ~ the same time, my tool's current iteration reaches the end of file in 0.00025 secs and in 32 lines.
-This means that in 10 seconds, theoretically my tool would read 1,280,000 lines.
-Meanwhile, the web server only emits about 180 lines total in 10 seconds.
-If I try to read the log files continuously, I end up with a race condition.
-* Whenever my tool reaches EOF and opens file again to read, it starts from first line. This means that in cases where the current log file has not changed, many lines are re-read before reaching previous end point.
-This tells me that I need to figure out a tracking mechanism for writes so that I only read whenever a line is written.
-* in the previous iteration, I used EOF as an indicator that file was done being written to and to re-initiate line-by-line read of
-current access.log. in reality EOF is agnostic and it's possible that my code reached the end of the file, while it was still being written to. so when line-by-line read repeats, it might start reading the same file over again at position 0.
-* how to identify when file is still not done being written to?
-* usually global variables are frowned upon, but I'm using one for @total_lines because it makes sense to me to edit the same variable inside the smaller function's scope.
-* coordinating the create_report calls: should I use threading to spin off a "process" every 10 seconds  or stick to iterative logic?
-* if I were to for some reason read the file concurrently, would the file marker be updated across calls?
-* I use a recursive call to continue reading the current "access.log" if the end of one file is reached; but apparently this causes max recursion depth within 10 secs.
+things to consider:
+Is it possible for the script to raise an exception in the brief time between the current logfile being moved and the new logfile being placed? Currently I only open access.log upon starting the script and whenever EOF/index error occurs, but if reopening of access.log fires before new logfile is created, it could cause:
+
+Traceback (most recent call last):
+  File "./try-w-python-threading.py", line 96, in <module>
+    logfile = open(access_log, "r")    # open access.log for reading
+IOError: [Errno 2] No such file or directory: 'logs/access.log'
+
+Is it problematic that my script only reads a line when a new line is written, but the cursor will be placed at the beginning of the file? For instance, if access.log is 50 lines in when my script starts, my script may end up reporting 50 lines behind real time traffic. <-- possible solution: finding position of written line and seeking one line behind it to report
+
+My current method of pacing my reads is to monitor change in line count and read whenever line count changes. This requires a loop and may be resource intensive. Is it better to hook into the program and make a callback whenever the write to access.log occurs? Or does this require just as much CPU and memory?
+
+My current organization is to have one monitoring thread, which fires off ephemeral subthreads whenever wc changes, and one reporting thread, which calls a print function every 10 seconds. What are the pros and cons of using threads instead of including all of the execution in one stream?
+    makes sense to separate monitoring and reporting because both need to be happening semi-simultaneously/continuously/we don't want one process to block the other.
+    why fire off subthreads to read and parse instead of using function calls? if two writes happen in very close conjunction, having threads to handle each read means that reads will happen for each write; reduces the potential of missing a write because the monitoring was held up while read code was executing.
+    why use function calls to print each report instead of firing off subthreads? report prints only need to happen every 10 seconds, so execution "blocking" isn't as much of a concern with each print. still, using subthreads may result in closer to 10 second intervals than having 10 seconds between completion of print call and start of next print call (depends on how long it takes to compute each report print.)
+
+    is there a cost to splitting things into threads, resource-wise?
+
+    the classic concern with splitting things into threads is race-ish conditions. do my reads ever fail to update the cursor reliably in time for other reads/do I ever have two reads reading the same line by mistake? do my reset writes to requests.total or requests.routes ever fail because an update write is happening at the same time? for that matter, do I miss update writes between the report print and the reset call? should I implement mutexes/locks to prevent this possibility?
+
+The current library I'm using is threading, but this only emulates the process of threading; operations do not truly run asynchronously. Does it make sense to switch to a library that truly does that? What ends up being the difference, in reality?
+
+Probable improvements to code:
+using the log formatting tool used in the webserver
+using thread scheduling? instead of time.sleep
+coming up with a more efficient way to store routes with status codes and counts/using list comprehensions
+
+Still need to look into:
+method for daemonizing script. do I only want to daemonize the threads, using thread.daemon = True? or do I want the whole script to be treated as a daemon, by placing a certain way in the system, or etc.?
 """
 
 class MonitoringThread(threading.Thread):
