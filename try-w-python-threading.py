@@ -46,6 +46,7 @@ class ParsingThread(threading.Thread):
 
     def parse_line(self):
         global requests
+        global logfile
 
         try:
             line = logfile.readline()
@@ -57,7 +58,6 @@ class ParsingThread(threading.Thread):
 
         except(IndexError):
             # index error might arise if EOF is reached
-            global logfile
             logfile.close()
             logfile = open(access_log, "r")
             self.parse_line()
