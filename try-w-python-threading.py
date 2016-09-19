@@ -82,7 +82,7 @@ class ParsingThread(threading.Thread):
             route = parsed_line[1].split(' ')[1]
             status = parsed_line[2]
             requests.add_request(route, status)
-            subprocess.call(["echo", line[:-1]])
+            # subprocess.call(["echo", line[:-1]]) <-- toggle for troubleshooting
 
         except(IndexError):
             # index error might arise if EOF is reached
@@ -116,8 +116,7 @@ class ReportingThread(threading.Thread):
 
 class RequestsBatch:
     def __init__(self):
-        self.total = 0
-        self.routes = {}
+        self.reset()
 
     def add_request(self, route, status):
         if route not in self.routes.keys():
