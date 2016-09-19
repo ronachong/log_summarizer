@@ -25,10 +25,11 @@ class MonitoringThread(threading.Thread):
             prev = line_count
 
     def set_cursor(self):
-        # set cursor to end of file
+        """Set cursor for reading to end of logfile."""
         logfile.seek(0, 2)
 
     def check_log(self):
+        """Retrieve line count of logfile."""
         return subprocess.check_output(["wc", "-l", access_log])
 
 
@@ -69,9 +70,9 @@ class ReportingThread(threading.Thread):
         # thread.deamon = True      # ! uncomment to set thread to run forever
 
     def run(self):
-        start_time = time.time()
+        start_time = time.time()     # ! remove this eventually
         # while True:
-        while time.time() - start_time < 30.25:
+        while time.time() - start_time < 30.25:      # ! remove this eventually
             time.sleep(10)
             self.print_report()
 
@@ -91,7 +92,9 @@ class RequestsBatch:
 
     Attributes:
         total (int): The total number of requests logged over a period of time.
-        routes (dict): All the routes requested over a period of time. Format: route (str):status codes of requests to route (dict). Format of status codes: code (str): count of requests with given code (int).
+        routes (dict): All the routes requested over a period of time.
+            Format: route (str):status codes of requests to route (dict).
+            Format of status codes: code (str): count of requests to route with given code (int).
     """
     def __init__(self):
         self.reset()
