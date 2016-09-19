@@ -5,50 +5,19 @@ import subprocess
 import time
 import signal
 
-"""
-things to consider:
-Is it possible for the script to raise an exception in the brief time between the current logfile being moved and the new logfile being placed? Currently I only open access.log upon starting the script and whenever EOF/index error occurs, but if reopening of access.log fires before new logfile is created, it could cause:
-
-Traceback (most recent call last):
-  File "./try-w-python-threading.py", line 96, in <module>
-    logfile = open(access_log, "r")    # open access.log for reading
-IOError: [Errno 2] No such file or directory: 'logs/access.log'
-
-My current method of pacing my reads is to monitor change in line count and read whenever line count changes. This requires a loop and may be resource intensive. Is it better to hook into the program and make a callback whenever the write to access.log occurs? Or does this require just as much CPU and memory?
-
-My current organization is to have one monitoring thread, which fires off ephemeral subthreads whenever wc changes, and one reporting thread, which calls a print function every 10 seconds. What are the pros and cons of using threads instead of including all of the execution in one stream?
-    makes sense to separate monitoring and reporting because both need to be happening semi-simultaneously/continuously/we don't want one process to block the other.
-    why fire off subthreads to read and parse instead of using function calls? if two writes happen in very close conjunction, having threads to handle each read means that reads will happen for each write; reduces the potential of missing a write because the monitoring was held up while read code was executing.
-    why use function calls to print each report instead of firing off subthreads? report prints only need to happen every 10 seconds, so execution "blocking" isn't as much of a concern with each print. still, using subthreads may result in closer to 10 second intervals than having 10 seconds between completion of print call and start of next print call (depends on how long it takes to compute each report print.)
-
-    is there a cost to splitting things into threads, resource-wise?
-
-    the classic concern with splitting things into threads is race-ish conditions. do my reads ever fail to update the cursor reliably in time for other reads/do I ever have two reads reading the same line by mistake? do my reset writes to requests.total or requests.routes ever fail because an update write is happening at the same time? for that matter, do I miss update writes between the report print and the reset call? should I implement mutexes/locks to prevent this possibility?
-
-The current library I'm using is threading, but this only emulates the process of threading; operations do not truly run asynchronously. Does it make sense to switch to a library that truly does that? What ends up being the difference, in reality?
-
-In the end, is it better to ensure absolute accuracy, and complicate the logic of the solution a lot as a result, or is it better to go with more straightforward/intuitive solution and have some inaccuracy in the output?
-
-Probable improvements to code:
-using the log formatting tool used in the webserver
-using thread scheduling? instead of time.sleep
-coming up with a more efficient way to store routes with status codes and counts/using list comprehensions
-
-Still need to look into:
-method for daemonizing script. do I only want to daemonize the threads, using thread.daemon = True? or do I want the whole script to be treated as a daemon, by placing a certain way in the system, or etc.?
-"""
 
 class MonitoringThread(threading.Thread):
+    """Monitor new lines written to @logfile and parse each new line."""
     def __init__(self):
         threading.Thread.__init__(self)
-        # thread.deamon = True <-- this daemonizes thread to run forever
+        # thread.deamon = True <-- # ! uncomment to set thread to run forever
 
     def run(self):
-        start_time = time.time()
+        start_time = time.time()    # ! remove this eventually
         self.set_cursor()
         prev = self.check_log()
         # while True:
-        while time.time() - start_time < 30:
+        while time.time() - start_time < 30:    # ! remove this eventually
             line_count = self.check_log()
             if line_count != prev:
                 thread = ParsingThread()
@@ -64,6 +33,7 @@ class MonitoringThread(threading.Thread):
 
 
 class ParsingThread(threading.Thread):
+    """Parse a line for route and status; update stats for report."""
     def __init__(self):
         threading.Thread.__init__(self)
 
@@ -82,7 +52,7 @@ class ParsingThread(threading.Thread):
             route = parsed_line[1].split(' ')[1]
             status = parsed_line[2]
             requests.add_request(route, status)
-            # subprocess.call(["echo", line[:-1]]) <-- toggle for troubleshooting
+            # subprocess.call(["echo", line[:-1]]) # ! remove eventually
 
         except(IndexError):
             # index error might arise if EOF is reached
@@ -93,9 +63,10 @@ class ParsingThread(threading.Thread):
 
 
 class ReportingThread(threading.Thread):
+    """Print a report of request stats every 10 seconds."""
     def __init__(self):
         threading.Thread.__init__(self)
-        # thread.deamon = True <-- this daemonizes thread to run forever
+        # thread.deamon = True      # ! uncomment to set thread to run forever
 
     def run(self):
         start_time = time.time()
@@ -114,7 +85,14 @@ class ReportingThread(threading.Thread):
         print "total\t", requests.total, '\n'
         requests.reset()
 
+
 class RequestsBatch:
+    """An object representing all the requests logged over a period of time.
+
+    Attributes:
+        total (int): The total number of requests logged over a period of time.
+        routes (dict): All the routes requested over a period of time. Format: route (str):status codes of requests to route (dict). Format of status codes: code (str): count of requests with given code (int).
+    """
     def __init__(self):
         self.reset()
 
