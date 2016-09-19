@@ -14,8 +14,6 @@ Traceback (most recent call last):
     logfile = open(access_log, "r")    # open access.log for reading
 IOError: [Errno 2] No such file or directory: 'logs/access.log'
 
-Is it problematic that my script only reads a line when a new line is written, but the cursor will be placed at the beginning of the file? For instance, if access.log is 50 lines in when my script starts, my script may end up reporting 50 lines behind real time traffic. <-- possible solution: finding position of written line and seeking one line behind it to report
-
 My current method of pacing my reads is to monitor change in line count and read whenever line count changes. This requires a loop and may be resource intensive. Is it better to hook into the program and make a callback whenever the write to access.log occurs? Or does this require just as much CPU and memory?
 
 My current organization is to have one monitoring thread, which fires off ephemeral subthreads whenever wc changes, and one reporting thread, which calls a print function every 10 seconds. What are the pros and cons of using threads instead of including all of the execution in one stream?
@@ -47,6 +45,7 @@ class MonitoringThread(threading.Thread):
 
     def run(self):
         start_time = time.time()
+        self.set_cursor()
         prev = self.check_log()
         # while True:
         while time.time() - start_time < 30:
@@ -56,9 +55,13 @@ class MonitoringThread(threading.Thread):
                 thread.start()
             prev = line_count
 
+    def set_cursor(self):
+        # set cursor to end of file
+        logfile.seek(0, 2)
 
     def check_log(self):
         return subprocess.check_output(["wc", "-l", access_log])
+
 
 class ParsingThread(threading.Thread):
     def __init__(self):
@@ -79,7 +82,7 @@ class ParsingThread(threading.Thread):
             route = parsed_line[1].split(' ')[1]
             status = parsed_line[2]
             requests.add_request(route, status)
-            subprocess.call(["echo", line])
+            subprocess.call(["echo", line[:-1]])
 
         except(IndexError):
             # index error might arise if EOF is reached
