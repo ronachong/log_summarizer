@@ -74,10 +74,12 @@ class ParsingThread(threading.Thread):
         global requests
 
         try:
-            parsed_line = logfile.readline().split('\t')
+            line = logfile.readline()
+            parsed_line = line.split('\t')
             route = parsed_line[1].split(' ')[1]
             status = parsed_line[2]
             requests.add_request(route, status)
+            subprocess.call(["echo", line])
 
         except(IndexError):
             # index error might arise if EOF is reached
