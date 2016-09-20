@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-import threading
-import subprocess
-import time
 import signal
+import subprocess
+import threading
+import time
 
 
 class MonitoringThread(threading.Thread):
@@ -14,10 +14,11 @@ class MonitoringThread(threading.Thread):
 
     def run(self):
         start_time = time.time()    # ! remove this eventually
-        self.set_cursor()
+        self.set_cursor()           # ensure that reading begins at latest line
         prev = self.check_log()
+        # whenever linecount of logfile changes, start thread to read&parse line
         # while True:
-        while time.time() - start_time < 30:    # ! remove this eventually
+        while time.time() - start_time < 30:    # ! limit execution of monitoring to 30 seconds (remove this eventually)
             line_count = self.check_log()
             if line_count != prev:
                 thread = ParsingThread()
@@ -25,11 +26,11 @@ class MonitoringThread(threading.Thread):
             prev = line_count
 
     def set_cursor(self):
-        """Set cursor for reading to end of logfile."""
+        """Set cursor for reading to end of @logfile."""
         logfile.seek(0, 2)
 
     def check_log(self):
-        """Retrieve line count of logfile."""
+        """Retrieve line count of @logfile."""
         return subprocess.check_output(["wc", "-l", access_log])
 
 
@@ -39,7 +40,7 @@ class ParsingThread(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
-        # do stuff here to parse a line
+        # update count of total requests; parse a line from the logfile
         global requests
         requests.total += 1
         self.parse_line()
@@ -48,16 +49,18 @@ class ParsingThread(threading.Thread):
         global requests
         global logfile
 
+        # retrieve route and status from line; update requests object
         try:
             line = logfile.readline()
             parsed_line = line.split('\t')
             route = parsed_line[1].split(' ')[1]
             status = parsed_line[2]
             requests.add_request(route, status)
-            # subprocess.call(["echo", line[:-1]]) # ! remove eventually
+            # subprocess.call(["echo", line[:-1]]) # ! toggle to see lines parsed (remove this eventually)
 
+        # index error might arise if end of file is reached;
+        # if so, close and switch to new logfile
         except(IndexError):
-            # index error might arise if EOF is reached
             logfile.close()
             logfile = open(access_log, "r")
             self.parse_line()
@@ -71,15 +74,16 @@ class ReportingThread(threading.Thread):
 
     def run(self):
         start_time = time.time()     # ! remove this eventually
+        # every 10 seconds, print a report of current stats
         # while True:
-        while time.time() - start_time < 30.25:      # ! remove this eventually
+        while time.time() - start_time < 30.25:      # ! limit execution of reporting to 30.25 secs (remove this eventually)
             time.sleep(10)
             self.print_report()
 
     def print_report(self):
         global requests
         print subprocess.check_output(["date"]), "============================="
-        # this can be converted to list comprehensions later
+        # this could be converted to list comprehensions later
         for route in requests.routes.keys():
             for status_code in requests.routes[route].keys():
                 print route, '\t', status_code, '\t', requests.routes[route][status_code]
