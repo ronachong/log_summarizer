@@ -1,0 +1,13 @@
+import re
+
+def to_underscore(string):
+    return re.sub(r'[A-Z]', make_snake, string)
+
+def make_snake(match):
+    if match.start() == 0:
+        return match.group().lower()
+    # else
+    return "_" + match.group().lower()
+
+print to_underscore("saveChangesInTheEditor")
+print to_underscore("HelloHolbertonSchool")
