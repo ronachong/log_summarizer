@@ -1,0 +1,15 @@
+Both cronjobs and daemons can be used to regularly execute processes in the background. The main difference between cron and daemons is that cron periodically executes code (cronjobs) of finite duration, whereas a daemon continuously executes code. In a sense, cron is a daemon in itself, only that it comes built into the operating system and works in a predetermined fashion: sleeping and monitoring for regular intervals not less than one minute, and executing specified shell commands when those intervals end. Daemons can be written to behave the same way, but are not confined to operating in this fashion. This leads to a number of pros and cons:
+
+    * Using cron can reduce the amount of overhead for the programmer, since the programmer only needs to code the task that gets repeated and configure cron. Cron does the work of repeating the task for the programmer.
+
+    * Cron is durable by default since it is a system daemon. By design, the cron process will not be disturbed if a conflict arises in the execution of a cronjob. The system is also configured to resurrect cron if anything happens to the process, including system shutdowns. The programmer has to take extra measures to make sure this happens for a daemon.
+    
+    * If you already use cron, having it handle another cronjob poses minimal usage of CPU and memory, as opposed adding a whole new process to run tasks.
+
+    * Cron can only execute a task every minute (or longer intervals). If you need to execute tasks at a higher frequency, a daemon will allow you to do this.
+
+    * If you need to keep track of data between tasks, i.e. record state, cron is not capable of this in an internal sense. Using a daemon allows for more elegant solutions, if you do not want to write to external variables (e.g. shell variables) or write to files.
+
+In summary, creating and running a daemon can be more work and more resource-intensive than using cron, and potentially less reliable. However, cron is not capable of doing as much as a custom-written daemon, and cannot repeat tasks at a rate greater than once per minute. This is a major shortcoming for the given take-home task, since we need to process data that is coming in at many lines/second, near real-time.
+
+As a general guideline, it makes sense to use cron for simple tasks that only need to repeated every once in a while. However, if you need to identify an event with much greater precision and do things based on that event, then it makes sense to write and implement your own daemon.
